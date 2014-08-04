@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Books Library Sample Code</title>
+<style>
+#books-container {
+	list-style: none;
+	padding: 10;
+}
+#books-container li {
+	display: inline-block;
+	vertical-align: top;
+	padding: 1.4%;
+	margin: 5px;
+	width: 150px;
+	border: 0px solid #d3d3d3;
+	text-align: center;
+}
+#books-container img {
+	width: 130px;
+}
+.item-title {
+	font-size: 20px;
+	font-weight: bold;
+}
+</style>
+</head>
+<body>
+	<form id="newBook">
+		<input type="text" id="book-title" name="book-title" placeholder="Title" />
+		<input type="text" id="book-author" name="book-author" placeholder="Author" />
+		<input type="text" id="book-release-year" name="book-release-year" placeholder="Release Year" />
+		<input type="text" id="book-keywords" name="book-keywords"  placeholder="Keywords" />
+		<label>Cover:</label><input id="book-cover" type="file"  placeholder="book cover" />
+		<button>Add to Library</button>
+	</form>
+	<hr />
+	<ul id="books-container"></ul>
+	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+	<script src="js/underscore-min.js"></script>
+	<script src="js/backbone-min.js"></script>
+	<script>
+		(function($) {
+			var Book = Backbone.Model.extend({
+				defaults: function() {
+					return {
+						title: '',
+						author: '',
+						releaseYear: '',
+						keywords: '',
+						data: 'images/book.png'
+					}
+				},
+				setCoverFromFile: function(file) {
+					var reader = new FileReader();
+					self = this;
+					//closure to capture file info
+					reader.onload = (function(f) {
+						return function(e) {
+							self.set({filename: f.name});
+							self.set({data: e.target.result});
+						};
+					})(file);
+					reader.readAsDataURL(file);
+				}					
+			});
+			var BooksList = Backbone.Collection.extend({
+				model: Book
+			});
+			var booksList = new BooksList();
+			var BookView = Backbone.View.extend({
+				model: new Book(),
+				tagName: 'li',
+				initialize: function() {
+					this.template = _.template($("#bookTemplate").html());
+					_.bindAll(this, 'render');
+					this.model.bind('change', this.render);
+				},
+				events: {
+					"click .item-delete": "delete"
+				},
+				delete: function(e) {
+					e.preventDefault();
+					booksList.remove(this.model);
+				},
+				render: function() {
+					this.$el.html(this.template(this.model.toJSON()));
+					return this;
+				}
+			});
+			var BooksView = Backbone.View.extend({
+				model: booksList,
+				el: $('#books-container'),
+				initialize: function() {
+					this.model.on('add',this.render,this);
+					this.model.on('remove',this.render,this);
+				},
+				render: function() {
+					var self = this;
+					self.$el.html('');
+					_.each(this.model.toArray(), function(book,i) {
+						self.$el.append(new BookView({model: book}).render().$el);
+					});
+					return this;
+				}
+			});
+			$(document).ready(function() {
+				$('#newBook').on('submit', function() {
+					var bookTitle = $("#book-title").val();
+					var bookAuthor = $("#book-author").val();
+					var bookReleaseYear = $("#book-release-year").val();
+					var bookKeywords = $("#book-keywords").val()
+					if ($.trim(bookTitle) !== "") {
+						var book = new Book({
+											title: bookTitle,
+											author: bookAuthor,
+											releaseYear: bookReleaseYear,
+											keywords: bookKeywords
+										})
+						//add book cover
+						var imageUpload = document.getElementById('book-cover');
+						if (imageUpload.files.length > 0) {
+							var file = imageUpload.files[0];
+							var imageType = /image.*/;
+							if (file.type.match(imageType)) {
+								book.setCoverFromFile(file);
+							}
+						}
+						booksList.add(book);
+						document.getElementById("newBook").reset();
+					}
+					return false;
+				});
+				var appView = new BooksView();
+			});
+		})(jQuery);
+	</script>
+	<script type="text/template" id="bookTemplate">
+		<div><img src='<%= data %>' ></div>
+		<div class="item-title"><%= title %></div>
+		<div class="item-author">Author: <%= author %></div>
+		<div class="item-release-year">Release Year: <%= releaseYear %></div>
+		<div class="item-keywords">Keywords: <%= keywords %></div>
+		<div><a href="#" class="item-delete">Delete</a></div>
+	</script>
+</body>
+</html>
